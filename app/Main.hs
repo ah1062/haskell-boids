@@ -30,7 +30,6 @@ biasVal        = 0.001
 
 data World = World {
     worldBound :: (Float, Float),
-    iterations :: Int,
     boids      :: [Boid]
 }
 
@@ -62,6 +61,23 @@ randomColor = do
     b <- randomRIO (round 0.3 * 255, round 0.7 * 255)
     return $ makeColorI r g b 180
 
+paramDisplay :: Picture
+paramDisplay = 
+               color white $  
+               pictures [
+                    translate 10 0      $ scale 0.1 0.1 $ text ("Turn Factor " ++ show turnFactor),
+                    translate 10 (-50)  $ scale 0.1 0.1 $ text ("Visual Range " ++ show visualRange),
+                    translate 10 (-100) $ scale 0.1 0.1 $ text ("Protect Range " ++ show protectedRange),
+                    translate 10 (-150) $ scale 0.1 0.1 $ text ("Centre Factor " ++ show centerFactor),
+                    translate 10 (-200) $ scale 0.1 0.1 $ text ("Avoid Factor " ++ show avoidFactor),
+                    translate 10 (-250) $ scale 0.1 0.1 $ text ("Matching Factor " ++ show matchingFactor),
+                    translate 10 (-300) $ scale 0.1 0.1 $ text ("Minimum Speed " ++ show minBoidSpeed),
+                    translate 10 (-350) $ scale 0.1 0.1 $ text ("Maximum Speed " ++ show maxBoidSpeed),
+                    translate 10 (-400) $ scale 0.1 0.1 $ text ("Max Bias " ++ show maxBias), 
+                    translate 10 (-450) $ scale 0.1 0.1 $ text ("Bias Increment " ++ show biasIncrement), 
+                    translate 10 (-500) $ scale 0.1 0.1 $ text ("Bias Value " ++ show biasVal) 
+                        ]
+
 window :: Display
 window = InWindow "Boids: Haskell" (screenWidth, screenHeight) (windowOffsetX, windowOffsetY)
 
@@ -71,6 +87,9 @@ background = dim $ light black
 drawing :: World -> Picture 
 drawing w = pictures [ 
     scale 2.0 2.0 $ color (dark white) $ uncurry rectangleWire (worldBound w),
+
+    -- Draw Parameter Info
+    uncurry translate (worldBound w) paramDisplay,
     
     -- Draw All Boids
     pictures $ map (boidDraw w) (boids w),
@@ -80,7 +99,7 @@ drawing w = pictures [
                     ]
 
 timestep :: ViewPort -> Float -> World -> World
-timestep v t w = World (worldBound w) (iterations w + 1) (map (boidBound (worldBound w) . boidUpdate (boids w)) (boids w))
+timestep v t w = World (worldBound w) (map (boidBound (worldBound w) . boidUpdate (boids w)) (boids w))
 
 makeBoid :: IO Boid
 makeBoid = do
@@ -152,10 +171,10 @@ boidCohesion b bs
 
 boidBound :: (Float, Float) -> Boid -> Boid
 boidBound (w, h) b    
-    | w-50  < fst (position b)         = Boid (colorB b) (position b) (addV (-turnFactor, 0) (velocity b)) (procRang b) (visRange b)
-    | -w+50 > fst (position b)         = Boid (colorB b) (position b) (addV (turnFactor, 0)  (velocity b)) (procRang b) (visRange b)
-    | h-50  < snd (position b)         = Boid (colorB b) (position b) (addV (0, -turnFactor) (velocity b)) (procRang b) (visRange b)
-    | -h+50 > snd (position b)         = Boid (colorB b) (position b) (addV (0, turnFactor)  (velocity b)) (procRang b) (visRange b)
+    | w-50  < fst (position b)         = Boid (colorB b) (position b) (addV (mulSV (3/5) (-turnFactor, 0)) (velocity b)) (procRang b) (visRange b)
+    | -w+50 > fst (position b)         = Boid (colorB b) (position b) (addV (mulSV (3/5) (turnFactor, 0))  (velocity b)) (procRang b) (visRange b)
+    | h-50  < snd (position b)         = Boid (colorB b) (position b) (addV (mulSV (3/5) (0, -turnFactor)) (velocity b)) (procRang b) (visRange b)
+    | -h+50 > snd (position b)         = Boid (colorB b) (position b) (addV (mulSV (3/5) (0, turnFactor))  (velocity b)) (procRang b) (visRange b)
     | minBoidSpeed > magV (velocity b) = Boid (colorB b) (position b) (mulSV minBoidSpeed $ normalizeV (velocity b)) (procRang b)  (visRange b)
     | maxBoidSpeed < magV (velocity b) = Boid (colorB b) (position b) (mulSV maxBoidSpeed $ normalizeV (velocity b)) (procRang b)  (visRange b)
     | otherwise = b
@@ -163,6 +182,6 @@ boidBound (w, h) b
 main :: IO ()
 main = do
     boids <- replicateM 120 makeBoid
-    let world = World (250, 250) 0 boids
+    let world = World (500, 500) boids
 
-    simulate window background 60 world drawing timestep
+    simulate window background 40 world drawing timestep
